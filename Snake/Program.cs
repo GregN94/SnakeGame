@@ -2,11 +2,27 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Xml.Schema;
 
 namespace Snake
 {
     class Program
     {
+        static int score;
+        static bool gameOver;
+
+        static void HandleSnakeBerryCollision(Snake snake, Pixel berry)
+        {
+            if (snake.Head.Collide(berry))
+            {
+                var random = new Random();
+                snake.Eat();
+                score++;
+                berry.XPos = random.Next(1, Console.WindowWidth - 2);
+                berry.YPos = random.Next(1, Console.WindowHeight - 2);
+            }
+        }
+
         static void Main()
         {
             Console.WindowHeight = 16;
@@ -14,112 +30,91 @@ namespace Snake
 
             var random = new Random();
 
-            var score = 5;
-
-            var head = new Pixel(Console.WindowWidth / 2, Console.WindowHeight / 2, ConsoleColor.Red);
             var berry = new Pixel(random.Next(1, Console.WindowWidth - 2), random.Next(1, Console.WindowHeight - 2), ConsoleColor.Cyan);
 
-            var body = new List<Pixel>();
+            Snake snake = new Snake(Direction.Right);
 
-            var currentMovement = Direction.Right;
-
-            var gameOver = false;
-
-            DrawBorder();
+            DrawBorders();
 
             while (true)
             {
+                score -= snake.EatTail();
+
                 ClearConsole(Console.WindowWidth, Console.WindowHeight);
 
-                gameOver |= (head.XPos == Console.WindowWidth - 1 || head.XPos == 0 || head.YPos == Console.WindowHeight - 1 || head.YPos == 0);
+                gameOver |= (snake.Head.XPos == Console.WindowWidth - 1 || snake.Head.XPos == 0 || snake.Head.YPos == Console.WindowHeight - 1 || snake.Head.YPos == 0);
 
+                HandleSnakeBerryCollision(snake, berry);
 
-                if (berry.XPos == head.XPos && berry.YPos == head.YPos)
-                {
-                    score++;
-                    berry = new Pixel(random.Next(1, Console.WindowWidth - 2), random.Next(1, Console.WindowHeight - 2), ConsoleColor.Cyan);
-                }
+                berry.Draw();
 
-                for (int i = 0; i < body.Count; i++)
-                {
-                    body[i].Draw();
-                    gameOver |= (body[i].XPos == head.XPos && body[i].YPos == head.YPos);
-                }
+                DrawSnake(snake);
 
                 if (gameOver)
                 {
                     break;
                 }
 
-                head.Draw();
-                berry.Draw();
-
                 var sw = Stopwatch.StartNew();
                 while (sw.ElapsedMilliseconds <= 200)
                 {
-                    currentMovement = ReadMovement(currentMovement);
+                    var direction = ReadKeyboard(snake.Direction);
+                    snake.Direction = direction;
                 }
 
-                body.Add(new Pixel(head.XPos, head.YPos, ConsoleColor.Green));
-
-                switch (currentMovement)
-                {
-                    case Direction.Up:
-                        head.YPos--;
-                        break;
-                    case Direction.Down:
-                        head.YPos++;
-                        break;
-                    case Direction.Left:
-                        head.XPos--;
-                        break;
-                    case Direction.Right:
-                        head.XPos++;
-                        break;
-                }
-
-                if (body.Count > score)
-                {
-                    body.RemoveAt(0);
-                }
+                snake.Move();
             }
-            Console.SetCursorPosition(Console.WindowWidth / 5, Console.WindowHeight / 2);
-            Console.WriteLine($"Game over, Score: {score - 5}");
-            Console.SetCursorPosition(Console.WindowWidth / 5, Console.WindowHeight / 2 + 1);
-            Console.ReadKey();
+            GameOver();
         }
 
-        static Direction ReadMovement(Direction movement)
+        static void GameOver()
+        {
+            bool closeWindow = false;
+
+            Console.SetCursorPosition(Console.WindowWidth / 5, Console.WindowHeight / 2);
+            Console.WriteLine($"Game over, Score: {score}");
+            Console.SetCursorPosition(Console.WindowWidth / 5, Console.WindowHeight / 2 + 1);
+            while (!closeWindow)
+            {
+                var key = Console.ReadKey(true).Key;
+                if (key == ConsoleKey.Enter)
+                {
+                    closeWindow = true;
+                }
+            }
+        }
+
+        static Direction ReadKeyboard(Direction snakeDirection)
         {
             if (Console.KeyAvailable)
             {
                 var key = Console.ReadKey(true).Key;
 
-                if (key == ConsoleKey.UpArrow && movement != Direction.Down)
+                if (key == ConsoleKey.UpArrow && snakeDirection != Direction.Down)
                 {
-                    movement = Direction.Up;
+                    snakeDirection = Direction.Up;
                 }
-                else if (key == ConsoleKey.DownArrow && movement != Direction.Up)
+                else if (key == ConsoleKey.DownArrow && snakeDirection != Direction.Up)
                 {
-                    movement = Direction.Down;
+                    snakeDirection = Direction.Down;
                 }
-                else if (key == ConsoleKey.LeftArrow && movement != Direction.Right)
+                else if (key == ConsoleKey.LeftArrow && snakeDirection != Direction.Right)
                 {
-                    movement = Direction.Left;
+                    snakeDirection = Direction.Left;
                 }
-                else if (key == ConsoleKey.RightArrow && movement != Direction.Left)
+                else if (key == ConsoleKey.RightArrow && snakeDirection != Direction.Left)
                 {
-                    movement = Direction.Right;
+                    snakeDirection = Direction.Right;
                 }
             }
 
-            return movement;
+            return snakeDirection;
         }
 
         private static void ClearConsole(int screenWidth, int screenHeight)
         {
-            var blackLine = string.Join("", new byte[screenWidth - 2].Select(b => " ").ToArray());
-            Console.ForegroundColor = ConsoleColor.Black;
+            var blackLine = string.Join("", new byte[screenWidth - 2].Select(b => "-").ToArray());
+            Console.ForegroundColor = ConsoleColor.White;
             for (int i = 1; i < screenHeight - 1; i++)
             {
                 Console.SetCursorPosition(1, i);
@@ -127,7 +122,17 @@ namespace Snake
             }
         }
 
-        static void DrawBorder()
+        static void DrawSnake(Snake snake)
+        {
+            for (int i = 0; i < snake.Body.Count; i++)
+            {
+                snake.Body[i].Draw();
+            }
+
+            snake.Head.Draw();
+        }
+
+        static void DrawBorders()
         {
             for (int i = 0; i < Console.WindowWidth; i++)
             {
@@ -148,34 +153,5 @@ namespace Snake
             }
         }
 
-        struct Pixel
-        {
-            public Pixel(int xPos, int yPos, ConsoleColor color)
-            {
-                XPos = xPos;
-                YPos = yPos;
-                this.color = color;
-            }
-            public int XPos { get; set; }
-            public int YPos { get; set; }
-
-            private readonly ConsoleColor color;
-
-            public void Draw()
-            {
-                Console.SetCursorPosition(XPos, YPos);
-                Console.ForegroundColor = color;
-                Console.Write("■");
-                Console.SetCursorPosition(0, 0);
-            }
-        }
-
-        enum Direction
-        {
-            Up,
-            Down,
-            Right,
-            Left
-        }
     }
 }
