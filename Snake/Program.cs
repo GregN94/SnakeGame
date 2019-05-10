@@ -11,15 +11,13 @@ namespace Snake
         static int score;
         static bool gameOver;
 
-        static void HandleSnakeBerryCollision(Snake snake, Pixel berry)
+        static void HandleSnakeBerryCollision(Snake snake, Berry berry)
         {
-            if (snake.Head.Collide(berry))
+            if (snake.Head.Collide(berry.Body))
             {
-                var random = new Random();
                 snake.Eat();
                 score++;
-                berry.XPos = random.Next(1, Console.WindowWidth - 2);
-                berry.YPos = random.Next(1, Console.WindowHeight - 2);
+                berry.NewBerry();
             }
         }
 
@@ -28,9 +26,7 @@ namespace Snake
             Console.WindowHeight = 16;
             Console.WindowWidth = 32;
 
-            var random = new Random();
-
-            var berry = new Pixel(random.Next(1, Console.WindowWidth - 2), random.Next(1, Console.WindowHeight - 2), ConsoleColor.Cyan);
+            Berry berry = new Berry();
 
             Snake snake = new Snake(Direction.Right);
 
@@ -46,7 +42,7 @@ namespace Snake
 
                 HandleSnakeBerryCollision(snake, berry);
 
-                berry.Draw();
+                berry.Body.Draw();
 
                 DrawSnake(snake);
 
